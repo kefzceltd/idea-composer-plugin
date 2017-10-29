@@ -2,6 +2,7 @@ import java.io.File
 
 import sbt.Keys.{`package` => pack}
 import sbt.project
+import scala.sys.process._
 
 import scala.language.postfixOps
 
@@ -18,6 +19,7 @@ ideaBuild in ThisBuild := sys.props.getOrElse("IDEA_VERSION", Versions.idea)
 ideaEdition in ThisBuild := IdeaEdition.Ultimate
 phpPluginUrl in ThisBuild := sys.props.getOrElse("PHP_PLUGIN_URL", "https://download.plugins.jetbrains.com/6610/38422/php-172.4155.25.zip")
 scalaVersion in ThisBuild := Versions.scala
+enablePlugins(SbtIdeaPlugin)
 
 lazy val release = TaskKey[Unit]("release")
 release in ThisBuild := {
@@ -101,7 +103,7 @@ lazy val runner = (project in file("subprojects/idea-runner"))
       s"-Dplugin.path=${packagedPluginDir.value}",
       "-Didea.ProcessCanceledException=disabled"
     ),
-    run in Compile <<= run in Compile dependsOn pack.in(packager)
+    run in Compile := (run in Compile dependsOn pack.in(packager)).inputTaskValue
   )
 
 lazy val packagedPluginDir = settingKey[File]("Path to packaged, but not yet compressed plugin")
@@ -111,9 +113,7 @@ packagedPluginDir in ThisBuild := baseDirectory.in(ThisBuild).value / "target" /
 lazy val packager: Project = (project in file("subprojects/packager"))
   .settings(
     artifactPath := packagedPluginDir.value,
-    dependencyClasspath <<= {
-      dependencyClasspath in (root, Compile)
-    },
+    dependencyClasspath := (dependencyClasspath in (root, Compile)).value,
     mappings := {
       val pluginMapping = pack.in(root, Compile).value -> "lib/composer-json-plugin.jar"
 
@@ -148,7 +148,7 @@ lazy val compressor: Project = (project in file("subprojects/compressor"))
     description := "Prepare plugin zip file",
     pack := {
       val source = pack.in(packager).value
-      IO.zip((source ***) pair (relativeTo(source.getParentFile), false), artifactPath.value)
+      IO.zip((source *(_ => true)) pair (f => f.relativeTo(source.getParentFile).map(_.getAbsolutePath), false), artifactPath.value)
       artifactPath.value
     }
   )
@@ -160,8 +160,13 @@ lazy val proguard: Project = (project in file("subprojects/proguard"))
       val proguardUrl = "https://github.com/psliwa/proguard-fixd/raw/master/proguard5.3.2.jar"
       val proguardDest: File = getBaseDir(baseDirectory.value) / "proguard.jar"
 
+     def download(url: URL, to: File): Unit =
+       sbt.io.Using.urlInputStream(url) { inputStream =>
+         IO.transfer(inputStream, to)
+       }
+
       if(!proguardDest.exists()) {
-        IO.download(new URL(proguardUrl), proguardDest)
+        download(new URL(proguardUrl), proguardDest)
       }
 
       def escape(s: String) = if(File.pathSeparatorChar == '\\') "\""+s+"\"" else s
