@@ -1,11 +1,12 @@
 package org.psliwa.idea.composerJson.intellij.codeAssist.schema
 
-import com.intellij.codeInspection.{ProblemsHolder, LocalQuickFix}
+import com.intellij.codeHighlighting.HighlightDisplayLevel
+import com.intellij.codeInspection.{LocalQuickFix, ProblemsHolder}
 import com.intellij.json.psi.{JsonNumberLiteral, JsonProperty, _}
 import com.intellij.psi.PsiElement
 import org.psliwa.idea.composerJson.ComposerBundle
 import org.psliwa.idea.composerJson.intellij.codeAssist.problem.ProblemDescriptor
-import org.psliwa.idea.composerJson.intellij.codeAssist.{CreatePropertyQuickFix, AbstractInspection, RemoveJsonElementQuickFix}
+import org.psliwa.idea.composerJson.intellij.codeAssist.{AbstractInspection, CreatePropertyQuickFix, RemoveJsonElementQuickFix}
 import org.psliwa.idea.composerJson.intellij.PsiExtractors
 import org.psliwa.idea.composerJson.json._
 
@@ -133,6 +134,8 @@ class SchemaInspection extends AbstractInspection {
     }
   }
 
+  override def getShortName: String = "ComposerJsonSchema"
+
   private def getAlreadyDefinedProperties(properties: List[JsonProperty]): Iterable[JsonProperty] = {
     properties
       .view
@@ -182,7 +185,7 @@ class SchemaInspection extends AbstractInspection {
     case _ => "unknown"
   }
 
-  def readableFormat(format: Format): String = format match {
+  private def readableFormat(format: Format): String = format match {
     case EmailFormat => "email"
     case UriFormat => "uri"
     case PatternFormat(pattern) => pattern.toString
